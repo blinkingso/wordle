@@ -3,7 +3,7 @@ use std::hash::Hash;
 ///
 /// 字母状态
 ///
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
 pub enum LetterState {
     // 绿色, 正确的字母
     G = 0,
@@ -12,11 +12,12 @@ pub enum LetterState {
     // 红色, 不正确的字母 或者重复出现的存在的字母
     R = 2,
     // 未知 默认值
+    #[default]
     X = 3,
 }
 
 /// 字母及字母状态
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct Letter(pub char, pub LetterState);
 impl Letter {
     pub fn new(val: char) -> Letter {

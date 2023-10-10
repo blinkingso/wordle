@@ -1,6 +1,5 @@
 use std::{io, num::ParseIntError};
 
-use terminal::error::ErrorKind;
 use thiserror::Error as ThisError;
 
 pub type Result<T> = std::result::Result<T, WordError>;
@@ -11,8 +10,6 @@ pub enum WordError {
     IoError(#[from] io::Error),
     #[error("json error")]
     JsonError,
-    #[error("terminal error")]
-    TerminalError(#[from] ErrorKind),
     #[error("your word `{0}` is not in the acceptable word list")]
     InValidWord(String),
     #[error("parse int error")]

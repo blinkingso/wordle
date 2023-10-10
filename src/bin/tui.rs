@@ -1,16 +1,24 @@
-use std::{error::Error, io::BufRead};
+use std::io::{self, BufRead};
 
+use crossterm::{
+    event::{DisableMouseCapture, EnableMouseCapture},
+    terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+};
 use rand::{Rng, SeedableRng};
+use ratatui::{prelude::CrosstermBackend, Terminal};
 use structopt::StructOpt;
 use wordle::{
     buildin_words::{ACCEPTABLE, FINAL},
     command::Opt,
+    error::Result,
     state::Mode,
     word::Word,
     wordle::Wordle,
 };
 
-fn main() -> std::result::Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
+    enable_raw_mode()?;
+    crossterm::execute!(io::stderr(), EnterAlternateScreen, EnableMouseCapture)?;
     let opt = Opt::from_args();
     let mode = if atty::is(atty::Stream::Stdout) {
         Mode::Interactive
@@ -27,6 +35,9 @@ fn main() -> std::result::Result<(), Box<dyn Error>> {
         Some(ref path) => Wordle::read_input_file(path)?,
         None => FINAL.iter().map(|s| s.to_string()).collect(),
     };
+
+    let backend = CrosstermBackend::new(io::stderr());
+    let mut terminal = Terminal::new(backend)?;
 
     // 随机答案模式
     let final_word: String = if opt.random {
@@ -56,6 +67,13 @@ fn main() -> std::result::Result<(), Box<dyn Error>> {
     wordle.mode = mode;
     wordle.acceptable_set = acceptable_set;
     wordle.final_set = final_set;
-    wordle.run()?;
+    wordle.run_app(&mut terminal)?;
+
+    disable_raw_mode()?;
+    crossterm::execute!(
+        terminal.backend_mut(),
+        LeaveAlternateScreen,
+        DisableMouseCapture
+    )?;
     Ok(())
 }

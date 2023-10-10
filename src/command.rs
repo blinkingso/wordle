@@ -4,7 +4,7 @@ use structopt::StructOpt;
 
 use crate::error::{Result, WordError};
 
-#[derive(StructOpt, Debug)]
+#[derive(StructOpt, Debug, Default)]
 #[structopt(author = "yaphets", about = "wordle game in terminal usage.")]
 pub struct Opt {
     // 指定答案模式
@@ -33,7 +33,7 @@ pub struct Opt {
     #[structopt(
         short = "a",
         long = "acceptable-set",
-        help = "acceptable set from an input file"
+        help = "acceptable set from an input file" 
     )]
     pub acceptable_set: Option<PathBuf>,
 

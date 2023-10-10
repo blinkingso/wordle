@@ -1,7 +1,3 @@
-use crate::error::{Result, WordError};
-
-const VALID_LEN: usize = 5;
-
 ///
 ///  Copied from `https://github.com/abmfy/wordle/blob/master/src/builtin_words.rs` from `https://github.com/abmfy` on 2023-09-28
 ///  候选词数组. 每日随机从该数组中选取当日的猜测词
@@ -242,7 +238,6 @@ pub const FINAL: &[&str] = &[
 
 /// Copied from `https://github.com/abmfy/wordle/blob/master/src/builtin_words.rs` from `https://github.com/abmfy` on 2023-09-28
 /// 可用词/单词字典. 用户输入的词必须在当前字典中, 否则应提示word not found.
-
 pub const ACCEPTABLE: &[&str] = &[
     "aahed", "aalii", "aargh", "aarti", "abaca", "abaci", "aback", "abacs", "abaft", "abaka",
     "abamp", "aband", "abase", "abash", "abask", "abate", "abaya", "abbas", "abbed", "abbes",
@@ -1543,119 +1538,3 @@ pub const ACCEPTABLE: &[&str] = &[
     "zowee", "zowie", "zulus", "zupan", "zupas", "zuppa", "zurfs", "zuzim", "zygal", "zygon",
     "zymes", "zymic",
 ];
-
-/// 键盘上26个字母
-pub const KEYBOARD_KEYS: [char; 26] = [
-    'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', 'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L',
-    'Z', 'X', 'C', 'V', 'B', 'N', 'M',
-];
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum WordState {
-    // Red, 数量过多的字母
-    R(char),
-    // Yellow, 位置不正确的字母
-    Y(char),
-    // Green, 正确的字母
-    G(char),
-    // Unknown, 位置状态的字母
-    X(char),
-}
-
-impl WordState {
-    pub fn get_char(&self) -> char {
-        match self {
-            WordState::R(s) => *s,
-            WordState::Y(s) => *s,
-            WordState::G(s) => *s,
-            WordState::X(s) => *s,
-        }
-    }
-    pub fn parse_states(word: &Word, final_word: &str) -> [WordState; VALID_LEN] {
-        let letters = word.0;
-        let final_letters = final_word.chars().collect::<Vec<char>>();
-        let mut states: [WordState; VALID_LEN] = [WordState::X(' '); VALID_LEN];
-        let mut processed_letters = vec![];
-        for (index, letter) in letters.into_iter().enumerate() {
-            // 正确的位置, 正确的字母
-            if letter == final_letters[index] {
-                states[index] = WordState::G(letter);
-                processed_letters.push(letter);
-                continue;
-            }
-
-            if final_letters.contains(&letter) {
-                // 位置不正确 yellow
-                states[index] = WordState::Y(letter);
-                // 判断是否是过多的字母
-                if processed_letters.contains(&letter) {
-                    // 过多的字母 red
-                    states[index] = WordState::R(letter);
-                }
-                processed_letters.push(letter);
-                continue;
-            }
-
-            states[index] = WordState::R(letter);
-            processed_letters.push(letter);
-        }
-        states
-    }
-}
-
-/// 保存输入的单词
-#[derive(Debug, Clone)]
-pub struct Word([char; VALID_LEN]);
-
-impl ToString for Word {
-    fn to_string(&self) -> String {
-        String::from_iter(self.0)
-    }
-}
-
-impl Word {
-    // 检查单词是否在词库中
-    pub fn word_acceptable(&self) -> bool {
-        let word = String::from_iter(self.0);
-        ACCEPTABLE
-            .iter()
-            .any(|w| w.eq_ignore_ascii_case(word.as_str()))
-    }
-
-    fn check_word(word: &str) -> Result<()> {
-        if word.len() != VALID_LEN {
-            return Err(WordError::InValidWord(word.to_string()));
-        }
-
-        Ok(())
-    }
-
-    fn new(word: &str) -> Result<Self> {
-        let word = word.to_uppercase();
-        Self::check_word(word.as_str())?;
-        let mut chars = word.chars();
-        Ok(Word([
-            chars.next().unwrap(),
-            chars.next().unwrap(),
-            chars.next().unwrap(),
-            chars.next().unwrap(),
-            chars.next().unwrap(),
-        ]))
-    }
-}
-
-impl TryFrom<&str> for Word {
-    type Error = WordError;
-
-    fn try_from(word: &str) -> std::result::Result<Self, Self::Error> {
-        Self::new(word)
-    }
-}
-
-impl TryFrom<String> for Word {
-    type Error = WordError;
-
-    fn try_from(word: String) -> std::result::Result<Self, Self::Error> {
-        Self::new(word.as_str())
-    }
-}
