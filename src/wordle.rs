@@ -270,8 +270,8 @@ impl Wordle {
                 stdin.read_line(&mut w)?;
                 let word = Word::parse(&w)?;
                 self.states.reset();
-                self.states.current_word = word;
-                if self.is_current_word_final() {
+                self.final_word = word;
+                if self.is_final_word_valid() {
                     drop(stdin);
                     break;
                 } else {

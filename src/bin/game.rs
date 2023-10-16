@@ -53,6 +53,7 @@ fn main() -> std::result::Result<(), Box<dyn Error>> {
     };
     let wordle = Wordle {
         final_word: Word::parse(final_word)?,
+        opt,
         mode,
         final_set,
         acceptable_set,
