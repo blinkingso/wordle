@@ -6,7 +6,6 @@ use std::{
 };
 
 use crossterm::{
-    cursor,
     event::{DisableMouseCapture, EnableMouseCapture, Event as CrosstermEvent, KeyEventKind},
     terminal::{self, is_raw_mode_enabled, EnterAlternateScreen, LeaveAlternateScreen},
 };
@@ -18,9 +17,17 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use crate::error::{Result, WordError};
+use crate::{
+    error::{Result, WordError},
+    wordle::Wordle,
+};
 
-use super::event::Event;
+use super::{
+    action::{get_action, update, Action},
+    event::Event,
+    ui::{self},
+    widgets::init_keyboard,
+};
 
 pub type CrosstermTerminal = Terminal<CrosstermBackend<io::Stderr>>;
 pub type Frame<'a> = ratatui::Frame<'a, CrosstermBackend<io::Stderr>>;
@@ -128,21 +135,9 @@ impl Tui {
 
     pub fn enter(&mut self) -> Result<()> {
         terminal::enable_raw_mode()?;
-        crossterm::execute!(
-            io::stderr(),
-            EnterAlternateScreen,
-            EnableMouseCapture,
-            cursor::Hide
-        )?;
+        crossterm::execute!(io::stderr(), EnterAlternateScreen, EnableMouseCapture)?;
 
         self.start();
-        Ok(())
-    }
-
-    fn reset() -> Result<()> {
-        terminal::disable_raw_mode()?;
-        crossterm::execute!(io::stderr(), LeaveAlternateScreen, DisableMouseCapture)?;
-
         Ok(())
     }
 
@@ -168,12 +163,7 @@ impl Tui {
         self.stop()?;
         if is_raw_mode_enabled()? {
             self.flush()?;
-            crossterm::execute!(
-                io::stderr(),
-                DisableMouseCapture,
-                LeaveAlternateScreen,
-                cursor::Show
-            )?;
+            crossterm::execute!(io::stderr(), DisableMouseCapture, LeaveAlternateScreen,)?;
             crossterm::terminal::disable_raw_mode()?;
         }
         self.terminal.show_cursor()?;
@@ -208,4 +198,47 @@ impl Drop for Tui {
     fn drop(&mut self) {
         self.exit().unwrap();
     }
+}
+
+/// 运行游戏
+pub async fn run(wordle: &mut Wordle) -> Result<()> {
+    let (action_tx, mut action_rx) = unbounded_channel();
+    let mut tui = Tui::new()?;
+    tui.enter()?;
+    let keyboards = init_keyboard();
+
+    loop {
+        let event = tui.next().await?;
+
+        match event {
+            Event::Init => action_tx.send(Action::Init).unwrap(),
+            Event::Quit => action_tx.send(Action::Quit).unwrap(),
+            Event::Error => action_tx.send(Action::Error).unwrap(),
+            Event::Tick => action_tx.send(Action::Tick).unwrap(),
+            Event::Render => action_tx.send(Action::Render).unwrap(),
+            Event::Key(_) => {
+                let action = get_action(wordle, event);
+                action_tx.send(action).unwrap();
+            }
+            Event::Mouse(_) => {}
+        }
+
+        while let Ok(action) = action_rx.try_recv() {
+            update(wordle, action.clone())?;
+
+            if let Action::Render = action {
+                tui.draw(|f| {
+                    ui::ui(wordle, f, &keyboards);
+                })?;
+            }
+        }
+
+        if wordle.exit {
+            break;
+        }
+    }
+
+    tui.exit()?;
+
+    Ok(())
 }

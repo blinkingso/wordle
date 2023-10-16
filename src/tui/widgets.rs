@@ -24,32 +24,32 @@ impl Button<'_> {
 pub struct Theme {
     text: Color,
     background: Color,
-    highlight: Color,
+    _highlight: Color,
 }
 
 /// 默认颜色
 pub const THEME_X: Theme = Theme {
     text: Color::DarkGray,
     background: Color::Rgb(164, 174, 196),
-    highlight: Color::Rgb(196, 203, 221),
+    _highlight: Color::Rgb(196, 203, 221),
 };
 
 pub const THEME_R: Theme = Theme {
     text: Color::White,
     background: Color::LightRed,
-    highlight: Color::Rgb(196, 203, 221),
+    _highlight: Color::Rgb(196, 203, 221),
 };
 
 pub const THEME_Y: Theme = Theme {
     text: Color::White,
     background: Color::LightYellow,
-    highlight: Color::Rgb(196, 203, 221),
+    _highlight: Color::Rgb(196, 203, 221),
 };
 
 pub const THEME_G: Theme = Theme {
     text: Color::White,
     background: Color::LightGreen,
-    highlight: Color::Rgb(196, 203, 221),
+    _highlight: Color::Rgb(196, 203, 221),
 };
 
 impl Theme {
@@ -57,7 +57,7 @@ impl Theme {
         Theme {
             background: bg,
             text: fg,
-            highlight: Color::Black,
+            _highlight: Color::Black,
         }
     }
 }
@@ -90,4 +90,85 @@ impl<'a> Widget for Button<'a> {
             area.width,
         );
     }
+}
+
+pub enum KeyboardType {
+    Char(char),
+    Backspace,
+    Enter,
+}
+
+pub struct Keyboard {
+    _x: u16,
+    _y: u16,
+    pub size: u16,
+    pub text: String,
+    theme: Theme,
+    state: LetterState,
+    ktype: KeyboardType,
+}
+
+impl Keyboard {
+    pub fn new(_x: u16, _y: u16, size: u16, ktype: KeyboardType) -> Self {
+        let text = match ktype {
+            KeyboardType::Char(ch) => ch.to_string(),
+            KeyboardType::Backspace => "⇦".to_string(),
+            KeyboardType::Enter => "Enter".to_string(),
+        };
+        Self {
+            _x,
+            _y,
+            size,
+            text,
+            theme: THEME_X,
+            state: LetterState::X,
+            ktype,
+        }
+    }
+
+    pub fn theme(mut self, theme: Theme) -> Self {
+        self.theme = theme;
+        self
+    }
+
+    pub fn state(mut self, state: LetterState) -> Self {
+        self.state = state;
+        self
+    }
+
+    pub fn letter(&self) -> Option<char> {
+        if let KeyboardType::Char(ch) = self.ktype {
+            return Some(ch);
+        }
+        None
+    }
+}
+
+pub fn init_keyboard() -> Vec<Vec<Keyboard>> {
+    let mut res = vec![];
+    res.push(
+        ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P']
+            .into_iter()
+            .enumerate()
+            .map(|(index, ch)| Keyboard::new(0, index as u16, 3, KeyboardType::Char(ch)))
+            .collect(),
+    );
+    res.push(
+        ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L']
+            .into_iter()
+            .enumerate()
+            .map(|(index, ch)| Keyboard::new(1, index as u16, 3, KeyboardType::Char(ch)))
+            .collect(),
+    );
+    let mut last = vec![Keyboard::new(2, 0, 6, KeyboardType::Backspace)];
+    last.extend(
+        ['Z', 'X', 'C', 'V', 'B', 'N', 'M']
+            .into_iter()
+            .enumerate()
+            .map(|(index, ch)| Keyboard::new(2, (index + 1) as u16, 3, KeyboardType::Char(ch))),
+    );
+    last.push(Keyboard::new(2, 8, 6, KeyboardType::Enter));
+    res.push(last);
+
+    res
 }

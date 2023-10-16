@@ -51,11 +51,13 @@ fn main() -> std::result::Result<(), Box<dyn Error>> {
             final_word
         }
     };
-    let mut wordle = Wordle::default();
-    wordle.final_word = Word::parse(final_word)?;
-    wordle.mode = mode;
-    wordle.acceptable_set = acceptable_set;
-    wordle.final_set = final_set;
+    let wordle = Wordle {
+        final_word: Word::parse(final_word)?,
+        mode,
+        final_set,
+        acceptable_set,
+        ..Default::default()
+    };
     wordle.run()?;
     Ok(())
 }

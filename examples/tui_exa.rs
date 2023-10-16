@@ -1,3 +1,4 @@
+#![allow(deprecated)]
 use std::{io, thread, time::Duration};
 
 use crossterm::{

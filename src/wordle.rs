@@ -5,13 +5,11 @@ use std::path::PathBuf;
 use derive_builder::Builder;
 use rand::{Rng, SeedableRng};
 use std::io::{BufRead, BufReader};
-use tokio::sync::mpsc::UnboundedSender;
 
 use crate::command::Opt;
 use crate::error::Result;
 use crate::state::{LetterState, Mode};
 use crate::states::States;
-use crate::tui::action::Action;
 use crate::tui::ui::UiState;
 use crate::{state::Letter, word::Word};
 
@@ -51,41 +49,60 @@ pub struct Wordle {
     pub states: States,
     #[cfg(feature = "tui")]
     pub ui_state: UiState,
-    #[cfg(feature = "tui")]
-    pub sender: Option<UnboundedSender<Action>>,
+    pub game_over: bool,
+    pub exit: bool,
 }
 
 impl Wordle {
     ///
     /// 检查输入的word是否在acceptable字典中
     ///
-    pub fn is_acceptable_word(&self) -> bool {
+    pub fn is_current_word_acceptable(&self) -> bool {
         self.acceptable_set
-            .binary_search(&self.states.current_word.to_string())
+            .binary_search(&self.states.current_word.to_string().to_lowercase())
             .is_ok()
     }
 
     pub fn is_game_over(&self) -> bool {
-        self.states.current_try_times >= MAX_RETRY_TIMES
+        self.game_over
+    }
+
+    pub fn game_over(&mut self) {
+        self.game_over = true;
     }
 
     pub fn is_final_word_valid(&self) -> bool {
-        self.acceptable_set
-            .binary_search(&self.final_word.to_string())
-            .is_ok()
-            && self
-                .final_set
-                .binary_search(&self.final_word.to_string())
-                .is_ok()
+        self.final_set
+            .iter()
+            .find(|&s| self.final_word.to_string().to_lowercase().eq(s))
+            .is_some()
+    }
+
+    pub fn get_diffcult_errors_in_green(&self) -> Vec<&(usize, Letter)> {
+        self.difficult_error_letters
+            .iter()
+            .filter(|&&(_, letter)| letter.1 == LetterState::G)
+            .collect::<Vec<_>>()
+    }
+
+    pub fn get_diffcult_errors_in_yellow(&self) -> Vec<&(usize, Letter)> {
+        self.difficult_error_letters
+            .iter()
+            .filter(|&&(_, letter)| letter.1 == LetterState::Y)
+            .collect::<Vec<_>>()
     }
 
     ///
     /// 检查输入的`FINAL`单词是否在final_set中, 如果不在, 则询问是否继续
     ///
-    pub fn is_final_word(&self) -> bool {
+    pub fn is_current_word_final(&self) -> bool {
+        // self.final_set
+        //     .binary_search(&self.states.current_word.to_string().to_lowercase())
+        //     .is_ok()
         self.final_set
-            .binary_search(&self.states.current_word.to_string())
-            .is_ok()
+            .iter()
+            .find(|&s| self.states.current_word.to_string().to_lowercase().eq(s))
+            .is_some()
     }
 
     fn resolve_difficult(&mut self) -> bool {
@@ -93,11 +110,12 @@ impl Wordle {
         if self.opt.difficult {
             self.difficult_error_letters.clear();
             // 找出y和g的字母及索引位置
+            let mut difficult_error = HashSet::new();
             let meaningful_letters = self
                 .history_words
                 .iter()
                 .flat_map(|word| {
-                    word.letters
+                    word.get_letters()
                         .iter()
                         .enumerate()
                         .filter_map(|(index, letter)| {
@@ -109,7 +127,6 @@ impl Wordle {
                 })
                 .collect::<Vec<_>>();
 
-            let mut difficult_error = HashSet::new();
             let green_letters: HashSet<_> = meaningful_letters
                 .iter()
                 .filter(|(_, letter)| letter.1 == LetterState::G)
@@ -121,13 +138,13 @@ impl Wordle {
                 .collect();
             // 绿色位置不正确时， 将不正确的字母和位置记录到错误信息中
             for (index, gl) in green_letters.into_iter() {
-                if self.states.current_word.letters[*index].ne(gl) {
+                if self.states.current_word.get_letters()[*index].ne(gl) {
                     difficult_error.insert((*index, **gl));
                 }
             }
             // 黄色的字母仅需判断是否在本次猜测的字母数组中， 如果不存在，则记录到错误信息中
             for yl in yellow_letters {
-                if !self.states.current_word.letters.contains(yl) {
+                if !self.states.current_word.get_letters().contains(yl) {
                     difficult_error.insert((0, **yl));
                 }
             }
@@ -141,37 +158,22 @@ impl Wordle {
 
     /// 检查结果
     pub fn check_word(&mut self) -> CheckResult {
-        if !self.is_acceptable_word() || !self.is_final_word() {
+        if !self.is_current_word_acceptable() && !self.is_current_word_final() {
             return CheckResult::InValid;
         }
-
-        let final_word = self.final_word.clone();
-
-        let mut processed_letters: Vec<Letter> = vec![];
-        for (index, letter) in self.states.current_word.letters.iter_mut().enumerate() {
-            let current_char = final_word.letters[index];
-            if current_char.0 == letter.0 {
-                letter.set_state(LetterState::G);
-            } else {
-                // 位置不正确，且未处理的字符标记为yellow
-                if final_word.letters().contains(&letter.0) && !processed_letters.contains(letter) {
-                    // yellow or red
-                    letter.set_state(LetterState::Y);
-                } else {
-                    letter.set_state(LetterState::R);
-                }
-            }
-            processed_letters.push(*letter);
-        }
-        processed_letters.sort();
-        let cached_letters: HashSet<Letter> = HashSet::from_iter(processed_letters);
-        self.cached_letter_states.extend(cached_letters);
-        self.history_words.push(self.states.current_word.clone());
 
         // 困难模式下输入的必须包含y和g的字母， 且g的字母位置必须正确
         if !self.resolve_difficult() {
             return CheckResult::Difficult;
         }
+
+        let final_word = self.final_word.clone();
+        self.states.current_word.diff(&final_word);
+
+        self.cached_letter_states
+            .extend(self.states.current_word.get_letters().iter());
+
+        self.history_words.push(self.states.current_word.clone());
 
         if final_word.eq(&self.states.current_word) {
             return CheckResult::Success;
@@ -212,6 +214,7 @@ impl Wordle {
         self.cached_letter_states.clear();
         self.history_words.clear();
         self.difficult_error_letters.clear();
+        self.game_over = false;
         self.states.reset();
         if self.opt.random {
             let seed = if let Some(seed) = self.opt.seed {
@@ -231,18 +234,28 @@ impl Wordle {
         // tui模式下, 随机生成答案
         #[cfg(feature = "tui")]
         {
-            let seed = if let Some(seed) = self.opt.seed {
-                seed
+            let final_word = if self.opt.random {
+                let seed = if let Some(seed) = self.opt.seed {
+                    seed
+                } else {
+                    2048
+                };
+                let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+                let index: usize = rng.gen_range(0..self.final_set.len());
+                Some(self.final_set[index].to_string())
+            } else if let Some(ref word) = self.opt.word {
+                Some(word.to_string())
             } else {
-                2048
+                None
             };
-            let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
-            let index = rng.gen_range(0..self.final_set.len());
-            let word = Word::parse(self.final_set[index].as_str())?;
-            if self.is_final_word_valid() {
-                self.final_word = word;
+            if let Some(final_word) = final_word {
+                self.final_word = Word::parse(final_word).unwrap_or(Word::default());
+                if !self.is_final_word_valid() {
+                    self.reset()?;
+                }
             } else {
-                self.reset()?;
+                // 需要从控制台输入一个final word
+                self.final_word = Word::default();
             }
         }
         #[cfg(not(feature = "tui"))]

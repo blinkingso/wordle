@@ -39,7 +39,7 @@ impl Wordle {
             Mode::Interactive => {
                 // 输出历史单词
                 for word in self.history_words.iter() {
-                    for letter in word.letters.iter() {
+                    for letter in word.get_letters().iter() {
                         let formated_string = match letter.1 {
                             crate::state::LetterState::G => letter.0.to_string().green(),
                             crate::state::LetterState::Y => letter.0.to_string().yellow(),

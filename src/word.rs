@@ -6,7 +6,7 @@ use crate::{
 
 #[derive(Debug, Clone, Default)]
 pub struct Word {
-    pub letters: Vec<Letter>,
+    letters: Vec<Letter>,
 }
 
 impl Word {
@@ -33,6 +33,14 @@ impl Word {
         self.letters.iter().map(|l| l.0).collect()
     }
 
+    pub fn get_letters(&self) -> &[Letter] {
+        &self.letters
+    }
+
+    pub fn get_mut_letters(&mut self) -> &mut Vec<Letter> {
+        &mut self.letters
+    }
+
     pub fn push(&mut self, ch: char) {
         if self.letters.len() < Self::MAX_LENGTH {
             self.letters.push(Letter::new(ch));
@@ -45,7 +53,15 @@ impl Word {
         }
     }
 
-    pub fn empty() -> Self {
+    pub fn is_full(&self) -> bool {
+        self.letters.len() == Self::MAX_LENGTH
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.letters.is_empty()
+    }
+
+    pub fn whitespace_word_for_render() -> Self {
         Word {
             letters: vec![
                 Letter::new(' '),
@@ -57,8 +73,36 @@ impl Word {
         }
     }
 
-    pub fn is_full(&self) -> bool {
-        self.letters.len() == Self::MAX_LENGTH
+    pub fn diff(&mut self, final_word: &Word) {
+        let mut final_word = final_word.to_string().as_bytes().to_owned();
+        let input = self.to_string();
+        let input = input.as_bytes();
+        // set green
+        for (pos, &letter) in input.iter().enumerate() {
+            if final_word[pos] == letter {
+                final_word[pos] = 0; // letters only match once.
+                self.letters[pos].set_state(LetterState::G);
+            }
+        }
+
+        // set yellow
+        for (pos, &letter) in input.iter().enumerate() {
+            if self.letters[pos].1 != LetterState::X {
+                continue;
+            }
+
+            if let Some(j) = final_word.iter().position(|&x| x == letter) {
+                final_word[j] = 0;
+                self.letters[pos].set_state(LetterState::Y);
+            }
+        }
+
+        // set red
+        for l in self.letters.iter_mut() {
+            if l.1 == LetterState::X {
+                l.set_state(LetterState::R);
+            }
+        }
     }
 }
 impl ToString for Word {
