@@ -52,6 +52,16 @@ pub const THEME_G: Theme = Theme {
     highlight: Color::Rgb(196, 203, 221),
 };
 
+impl Theme {
+    pub fn new(fg: Color, bg: Color) -> Self {
+        Theme {
+            background: bg,
+            text: fg,
+            highlight: Color::Black,
+        }
+    }
+}
+
 impl<'a> Button<'a> {
     pub fn new<T: Into<Line<'a>>>(label: T) -> Self {
         Button {
@@ -71,9 +81,11 @@ impl<'a> Widget for Button<'a> {
                 .fg(self.theme.text),
         );
 
+        let width = (area.width as f32 * 0.8) as u16;
+        let height = (area.height as f32 * 0.8) as u16;
         buf.set_line(
-            area.x + (area.width.saturating_sub(self.label.width() as u16)) / 2,
-            area.y + (area.height.saturating_sub(1)) / 2,
+            area.x + (width.saturating_sub(self.label.width() as u16)) / 2,
+            area.y + (height.saturating_sub(1)) / 2,
             &self.label,
             area.width,
         );

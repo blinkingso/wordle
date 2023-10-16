@@ -44,6 +44,22 @@ impl Word {
             self.letters.pop();
         }
     }
+
+    pub fn empty() -> Self {
+        Word {
+            letters: vec![
+                Letter::new(' '),
+                Letter::new(' '),
+                Letter::new(' '),
+                Letter::new(' '),
+                Letter::new(' '),
+            ],
+        }
+    }
+
+    pub fn is_full(&self) -> bool {
+        self.letters.len() == Self::MAX_LENGTH
+    }
 }
 impl ToString for Word {
     fn to_string(&self) -> String {

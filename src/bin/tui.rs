@@ -54,12 +54,7 @@ fn main() -> Result<()> {
         if let Some(ref word) = opt.word {
             word.to_string()
         } else {
-            // 默认情况下取子集中最后一个单词
-            let mut stdin = std::io::stdin().lock();
-            let mut final_word = String::new();
-            stdin.read_line(&mut final_word)?;
-            final_word.remove(final_word.len() - 1);
-            final_word
+            panic!("please use -r or -w `word` to gen a final word!");
         }
     };
     let mut wordle = Wordle::default();

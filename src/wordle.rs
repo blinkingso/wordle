@@ -2,14 +2,16 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::path::PathBuf;
 
-use colored::Colorize;
+use derive_builder::Builder;
 use rand::{Rng, SeedableRng};
 use std::io::{BufRead, BufReader};
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::command::Opt;
 use crate::error::Result;
 use crate::state::{LetterState, Mode};
 use crate::states::States;
+use crate::tui::action::Action;
 use crate::tui::ui::UiState;
 use crate::{state::Letter, word::Word};
 
@@ -24,7 +26,7 @@ pub const MAX_RETRY_TIMES: u32 = 6;
 /// ### 3. GUI模式, 在gui应用中模拟线上wordle游戏
 /// ### 4. 提供WebAssembly用于Web绘制用户界面之canvas
 ///
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Builder)]
 pub struct Wordle {
     // 输入过的字符及状态
     pub cached_letter_states: HashSet<Letter>,
@@ -37,6 +39,7 @@ pub struct Wordle {
     // 答案生成词库
     pub final_set: Vec<String>,
     // 命令行参数列表
+    #[builder(setter(skip))]
     pub opt: Opt,
     // 游戏模式: 交互模式, 测试模式, tui模式, gui模式
     pub mode: Mode,
@@ -48,6 +51,8 @@ pub struct Wordle {
     pub states: States,
     #[cfg(feature = "tui")]
     pub ui_state: UiState,
+    #[cfg(feature = "tui")]
+    pub sender: Option<UnboundedSender<Action>>,
 }
 
 impl Wordle {
@@ -58,6 +63,10 @@ impl Wordle {
         self.acceptable_set
             .binary_search(&self.states.current_word.to_string())
             .is_ok()
+    }
+
+    pub fn is_game_over(&self) -> bool {
+        self.states.current_try_times >= MAX_RETRY_TIMES
     }
 
     pub fn is_final_word_valid(&self) -> bool {
@@ -77,10 +86,6 @@ impl Wordle {
         self.final_set
             .binary_search(&self.states.current_word.to_string())
             .is_ok()
-    }
-
-    pub fn tui_states_mut(&mut self) -> &mut States {
-        &mut self.states
     }
 
     fn resolve_difficult(&mut self) -> bool {
@@ -207,6 +212,7 @@ impl Wordle {
         self.cached_letter_states.clear();
         self.history_words.clear();
         self.difficult_error_letters.clear();
+        self.states.reset();
         if self.opt.random {
             let seed = if let Some(seed) = self.opt.seed {
                 seed
@@ -222,6 +228,24 @@ impl Wordle {
                 self.reset()?;
             }
         }
+        // tui模式下, 随机生成答案
+        #[cfg(feature = "tui")]
+        {
+            let seed = if let Some(seed) = self.opt.seed {
+                seed
+            } else {
+                2048
+            };
+            let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+            let index = rng.gen_range(0..self.final_set.len());
+            let word = Word::parse(self.final_set[index].as_str())?;
+            if self.is_final_word_valid() {
+                self.final_word = word;
+            } else {
+                self.reset()?;
+            }
+        }
+        #[cfg(not(feature = "tui"))]
         if self.opt.word.is_none() && !self.opt.random {
             let mut stdin = std::io::stdin().lock();
             loop {
@@ -254,7 +278,7 @@ pub enum CheckResult {
 ///
 /// 游戏统计状态
 ///
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct WordleStatistic {
     // 总局数
     pub total: u32,

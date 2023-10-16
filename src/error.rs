@@ -16,6 +16,8 @@ pub enum WordError {
     ParseIntError(#[from] ParseIntError),
     #[error("custom error for: {0}")]
     CustomError(String),
+    #[error("eyre error")]
+    EyreError(#[from] color_eyre::eyre::Error),
     #[error("unknown error")]
     UnknownError,
 }

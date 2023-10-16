@@ -1,11 +1,13 @@
 use crate::{state::Letter, word::Word, wordle::CheckResult};
+use derive_builder::Builder;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Builder)]
 pub struct States {
     pub current_word: Word,
     pub current_word_checked: bool,
     pub current_try_times: u32,
     pub current_checked_result: Option<CheckResult>,
+    pub should_quit: bool,
 }
 
 impl States {
@@ -22,9 +24,10 @@ impl States {
         }
     }
 
-    pub fn next_states(&mut self) {
+    pub fn next_state(&mut self) {
         *self = States {
-            current_try_times: self.current_try_times,
+            current_try_times: self.current_try_times + 1,
+            current_checked_result: self.current_checked_result,
             ..Default::default()
         }
     }
