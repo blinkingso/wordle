@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use std::fs::File;
 use std::path::PathBuf;
 
+use colored::Colorize;
 use derive_builder::Builder;
 use rand::{Rng, SeedableRng};
 use std::io::{BufRead, BufReader};
@@ -10,6 +11,7 @@ use crate::command::Opt;
 use crate::error::Result;
 use crate::state::{LetterState, Mode};
 use crate::states::States;
+#[cfg(feature = "tui")]
 use crate::tui::ui::UiState;
 use crate::{state::Letter, word::Word};
 
@@ -258,7 +260,8 @@ impl Wordle {
                 self.final_word = Word::default();
             }
         }
-        #[cfg(not(feature = "tui"))]
+
+        #[cfg(feature = "cmd")]
         if self.opt.word.is_none() && !self.opt.random {
             let mut stdin = std::io::stdin().lock();
             loop {
@@ -268,7 +271,7 @@ impl Wordle {
                 let word = Word::parse(&w)?;
                 self.states.reset();
                 self.states.current_word = word;
-                if self.is_acceptable_word() && self.is_final_word() {
+                if self.is_current_word_final() {
                     drop(stdin);
                     break;
                 } else {

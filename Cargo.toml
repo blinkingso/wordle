@@ -30,7 +30,7 @@ tokio-util = "0.7.9"
 
 
 [features]
-default = ["tui", "cmd"]
+default = ["cmd"]
 cmd = []
 tui = []
 gui = []
