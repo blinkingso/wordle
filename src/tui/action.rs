@@ -16,7 +16,7 @@ pub enum Action {
     None,
 }
 
-pub fn get_action(wordle: &Wordle, event: Event) -> Action {
+pub fn get_action(_wordle: &Wordle, event: Event) -> Action {
     match event {
         Event::Init => Action::Init,
         Event::Quit => Action::Quit,

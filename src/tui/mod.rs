@@ -1,5 +1,5 @@
 //! tui 模式
-use std::{ops::ControlFlow, time::Duration};
+use std::{ops::ControlFlow};
 
 use crossterm::event::{KeyCode, KeyEvent, MouseEvent};
 use ratatui::{
@@ -17,10 +17,10 @@ use crate::{
     wordle::{CheckResult, Wordle, MAX_RETRY_TIMES},
 };
 
-use ui::init_keyboard;
+
 use widgets::Button;
 
-use action::Action;
+
 
 use self::ui::{centered_rect, get_style, get_theme, Keyboard, UiState};
 

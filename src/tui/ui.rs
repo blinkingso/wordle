@@ -1,23 +1,17 @@
-use std::{ops::ControlFlow, time::Duration};
 
-use crossterm::event::{self, KeyCode, KeyEvent, MouseEvent};
+
+
 use ratatui::{
     prelude::*,
     style::Color,
     style::Style,
-    text::Line,
-    widgets::{Block, Borders, Clear, Paragraph, Wrap},
-    Frame, Terminal,
 };
 
 use crate::{
-    error::Result,
     state::LetterState,
-    word::Word,
-    wordle::{CheckResult, Wordle, MAX_RETRY_TIMES},
 };
 
-use super::widgets::{Button, Theme, THEME_X};
+use super::widgets::{Theme, THEME_X};
 
 pub enum KeyboardType {
     Char(char),
