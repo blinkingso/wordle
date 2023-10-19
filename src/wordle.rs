@@ -3,7 +3,6 @@ use std::fs::File;
 use std::path::PathBuf;
 
 use colored::Colorize;
-use derive_builder::Builder;
 use rand::{Rng, SeedableRng};
 use std::io::{BufRead, BufReader};
 
@@ -26,7 +25,7 @@ pub const MAX_RETRY_TIMES: u32 = 6;
 /// ### 3. GUI模式, 在gui应用中模拟线上wordle游戏
 /// ### 4. 提供WebAssembly用于Web绘制用户界面之canvas
 ///
-#[derive(Debug, Default, Builder)]
+#[derive(Debug, Default)]
 pub struct Wordle {
     // 输入过的字符及状态
     pub cached_letter_states: HashSet<Letter>,
@@ -39,7 +38,6 @@ pub struct Wordle {
     // 答案生成词库
     pub final_set: Vec<String>,
     // 命令行参数列表
-    #[builder(setter(skip))]
     pub opt: Opt,
     // 游戏模式: 交互模式, 测试模式, tui模式, gui模式
     pub mode: Mode,
@@ -76,8 +74,7 @@ impl Wordle {
     pub fn is_final_word_valid(&self) -> bool {
         self.final_set
             .iter()
-            .find(|&s| self.final_word.to_string().to_lowercase().eq(s))
-            .is_some()
+            .any(|s| self.final_word.to_string().to_lowercase().eq(s))
     }
 
     pub fn get_diffcult_errors_in_green(&self) -> Vec<&(usize, Letter)> {
@@ -103,8 +100,7 @@ impl Wordle {
         //     .is_ok()
         self.final_set
             .iter()
-            .find(|&s| self.states.current_word.to_string().to_lowercase().eq(s))
-            .is_some()
+            .any(|s| self.states.current_word.to_string().to_lowercase().eq(s))
     }
 
     fn resolve_difficult(&mut self) -> bool {
@@ -121,35 +117,32 @@ impl Wordle {
                         .iter()
                         .enumerate()
                         .filter_map(|(index, letter)| {
-                            if letter.1 == LetterState::G || letter.1 == LetterState::Y {
-                                return Some((index, letter));
-                            }
-                            None
+                            (letter.1 == LetterState::G || letter.1 == LetterState::Y)
+                                .then_some((index, letter))
                         })
                 })
                 .collect::<Vec<_>>();
 
-            let green_letters: HashSet<_> = meaningful_letters
+            // 绿色位置不正确时， 将不正确的字母和位置记录到错误信息中
+            meaningful_letters
                 .iter()
-                .filter(|(_, letter)| letter.1 == LetterState::G)
-                .collect();
-            let yellow_letters: HashSet<_> = meaningful_letters
+                .filter(|(_, &letter)| letter.1 == LetterState::G)
+                .for_each(|(index, gl)| {
+                    if self.states.current_word.get_letters()[*index].ne(gl) {
+                        difficult_error.insert((*index, **gl));
+                    }
+                });
+
+            // 黄色的字母仅需判断是否在本次猜测的字母数组中， 如果不存在，则记录到错误信息中
+            meaningful_letters
                 .iter()
                 .filter(|(_, letter)| letter.1 == LetterState::Y)
-                .map(|(_, letter)| letter)
-                .collect();
-            // 绿色位置不正确时， 将不正确的字母和位置记录到错误信息中
-            for (index, gl) in green_letters.into_iter() {
-                if self.states.current_word.get_letters()[*index].ne(gl) {
-                    difficult_error.insert((*index, **gl));
-                }
-            }
-            // 黄色的字母仅需判断是否在本次猜测的字母数组中， 如果不存在，则记录到错误信息中
-            for yl in yellow_letters {
-                if !self.states.current_word.get_letters().contains(yl) {
-                    difficult_error.insert((0, **yl));
-                }
-            }
+                .for_each(|(_, yl)| {
+                    if !self.states.current_word.get_letters().contains(yl) {
+                        difficult_error.insert((0, **yl));
+                    }
+                });
+
             if !difficult_error.is_empty() {
                 self.difficult_error_letters.extend(difficult_error);
                 return false;
@@ -189,15 +182,8 @@ impl Wordle {
         let mut set: Vec<String> = buf_reader
             .lines()
             .filter_map(|line| {
-                let mut line = line.unwrap();
-                if line.contains('\n') {
-                    // 去除换行符
-                    line.remove(line.len() - 1);
-                }
-                if line.len() != 5 {
-                    return None;
-                }
-                Some(line)
+                let line = line.unwrap().trim().to_string();
+                (line.len() == 5).then_some(line)
             })
             .collect();
         if set.is_empty() {

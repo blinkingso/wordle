@@ -6,9 +6,9 @@ use crossterm::{
 };
 use ratatui::{
     prelude::{Constraint, CrosstermBackend, Layout},
+    widgets::Paragraph,
     Terminal,
 };
-use wordle::tui::widgets::Button;
 
 fn init() -> Result<(), io::Error> {
     enable_raw_mode()?;
@@ -48,7 +48,6 @@ fn test_layout() -> Result<(), io::Error> {
                 .constraints(row_constraints)
                 .split(f.size());
             let col_constraints = (0..size.width)
-                .into_iter()
                 .map(|_| Constraint::Length(2))
                 .collect::<Vec<_>>();
 
@@ -60,7 +59,7 @@ fn test_layout() -> Result<(), io::Error> {
                         .split(row_layout[j]);
                     for i in 0..size.width as usize {
                         if i % 2 != 0 {
-                            f.render_widget(Button::new("A"), column_layout[i]);
+                            f.render_widget(Paragraph::new("A"), column_layout[i]);
                         }
                     }
                 }

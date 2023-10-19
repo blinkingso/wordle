@@ -73,6 +73,10 @@ impl Wordle {
                     }
                 }
             }
+            #[cfg(feature = "tui")]
+            Mode::Tui => {}
+            #[cfg(feature = "gui")]
+            Mode::Gui => {}
         }
     }
 
