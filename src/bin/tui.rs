@@ -57,6 +57,5 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
-    eprintln!("请开启feature -> tui");
-    return Ok(());
+    panic!("请开启feature -> tui");
 }
